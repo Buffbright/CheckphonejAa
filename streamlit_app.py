@@ -96,6 +96,12 @@ if 'uploaded_files' not in st.session_state:
 def update_status(message):
     st.session_state.status_message.append(message)
 
+def hide_last_four_digits(number):
+    """ซ่อนเลขท้าย 4 ตัวของเบอร์โทรศัพท์"""
+    if len(number) > 4:
+        return number[:-4] + "XXXX"
+    return "XXXX"
+
 # --- ส่วนติดต่อผู้ใช้ (Streamlit UI) ---
 st.set_page_config(
     page_title="SMS Marketing Number Manager",
@@ -273,21 +279,39 @@ with col1:
     st.markdown("---")
     st.info("#### ผลลัพธ์เบอร์")
     if st.session_state.is_checked_only:
-        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join(list(st.session_state.duplicates_found)), height=200)
+        # แสดงเบอร์ที่ซ้ำแบบซ่อนเลขท้าย
+        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200)
     else:
-        st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join(list(st.session_state.new_numbers_to_add)), height=200)
+        # แสดงเบอร์ใหม่แบบซ่อนเลขท้าย
+        st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.new_numbers_to_add)]), height=200)
 
 with col2:
     st.success("#### บันทึกและส่งออก")
     
+    # เพิ่มการป้องกันด้วยรหัสผ่าน
+    password = st.text_input("รหัสผ่านสำหรับดาวน์โหลด", type="password")
+    
+    # สร้างปุ่มดาวน์โหลดเป็นฟังก์ชัน
+    def download_button(label, data, file_name, mime):
+        # ตรวจสอบรหัสผ่านก่อนดาวน์โหลด
+        if password == "aa123456":
+            st.download_button(
+                label=label,
+                data=data,
+                file_name=file_name,
+                mime=mime
+            )
+        elif password != "":
+            st.warning("รหัสผ่านไม่ถูกต้อง")
+
     if st.button("บันทึกลงไฟล์รวมเบอร์"):
         if not st.session_state.uploaded_files or st.session_state.is_checked_only:
             st.warning("โปรดประมวลผลไฟล์ก่อนบันทึก")
         else:
             already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
             if already_uploaded:
-                if st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?"):
-                    st.stop()
+                st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?")
+                st.stop()
             
             new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
             for f in st.session_state.uploaded_files:
@@ -300,24 +324,24 @@ with col2:
             st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
 
     st.markdown("---")
-    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True)
+    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio')
 
     if st.session_state.new_numbers_to_add:
-        st.download_button(
+        download_button(
             label=f"ดาวน์โหลดเบอร์ใหม่ ({len(st.session_state.new_numbers_to_add)} เบอร์)",
             data=create_export_file(st.session_state.new_numbers_to_add, export_format),
             file_name=f"new_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
         )
     if st.session_state.duplicates_found:
-        st.download_button(
+        download_button(
             label=f"ดาวน์โหลดเบอร์ที่ซ้ำ ({len(st.session_state.duplicates_found)} เบอร์)",
             data=create_export_file(st.session_state.duplicates_found, export_format),
             file_name=f"duplicate_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
         )
     if st.session_state.combined_numbers:
-        st.download_button(
+        download_button(
             label=f"ดาวน์โหลดเบอร์ทั้งหมดในไฟล์รวมเบอร์ ({len(st.session_state.combined_numbers)} เบอร์)",
             data=create_export_file(st.session_state.combined_numbers, export_format),
             file_name=f"all_combined_numbers.{export_format}",
