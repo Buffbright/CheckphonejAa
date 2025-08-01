@@ -88,6 +88,10 @@ if 'combined_numbers' not in st.session_state:
     st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
 if 'status_message' not in st.session_state:
     st.session_state.status_message = ["ยินดีต้อนรับสู่โปรแกรมจัดการเบอร์โทรศัพท์!"]
+if 'is_checked_only' not in st.session_state:
+    st.session_state.is_checked_only = False
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
 
 def update_status(message):
     st.session_state.status_message.append(message)
@@ -134,60 +138,124 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True,
     help="สามารถเลือกได้หลายไฟล์พร้อมกัน"
 )
+if uploaded_files:
+    st.session_state.uploaded_files = uploaded_files
 
-# ปุ่มประมวลผล
-if st.button("ประมวลผลไฟล์"):
-    if uploaded_files:
-        st.session_state.processed_numbers_from_file.clear()
-        st.session_state.new_numbers_to_add.clear()
-        st.session_state.duplicates_found.clear()
-        
-        all_numbers_from_files = set()
-        
-        for uploaded_file in uploaded_files:
-            filename = uploaded_file.name
-            update_status(f"กำลังประมวลผลไฟล์: {filename}")
+def create_export_file(numbers_set, file_format):
+    if file_format == 'txt':
+        return "\n".join(sorted(list(numbers_set))).encode('utf-8')
+    elif file_format == 'xlsx':
+        df = pd.DataFrame(sorted(list(numbers_set)), columns=["Phone Number"])
+        output = io.BytesIO()
+        df.to_excel(output, index=False)
+        return output.getvalue()
+
+# ปุ่มประมวลผลและตรวจสอบเบอร์
+col_upload, col_check = st.columns(2)
+with col_upload:
+    if st.button("ประมวลผลไฟล์"):
+        if st.session_state.uploaded_files:
+            st.session_state.processed_numbers_from_file.clear()
+            st.session_state.new_numbers_to_add.clear()
+            st.session_state.duplicates_found.clear()
+            st.session_state.is_checked_only = False
             
-            try:
-                numbers_from_file = set()
-                if filename.endswith('.txt'):
-                    lines = uploaded_file.read().decode('utf-8').splitlines()
-                    for line in lines:
-                        num = normalize_phone_number(line.strip())
-                        if num:
-                            numbers_from_file.add(num)
-                elif filename.endswith('.xlsx'):
-                    df = pd.read_excel(uploaded_file, engine='openpyxl')
-                    column_name = df.columns[0]
-                    for col in df.columns:
-                        if 'phone' in str(col).lower() or 'number' in str(col).lower():
-                            column_name = col
-                            break
-                    for num_raw in df[column_name].dropna():
-                        num = normalize_phone_number(num_raw)
-                        if num:
-                            numbers_from_file.add(num)
+            all_numbers_from_files = set()
+            
+            for uploaded_file in st.session_state.uploaded_files:
+                filename = uploaded_file.name
+                update_status(f"กำลังประมวลผลไฟล์: {filename}")
                 
-                all_numbers_from_files.update(numbers_from_file)
+                try:
+                    numbers_from_file = set()
+                    if filename.endswith('.txt'):
+                        lines = uploaded_file.read().decode('utf-8').splitlines()
+                        for line in lines:
+                            num = normalize_phone_number(line.strip())
+                            if num:
+                                numbers_from_file.add(num)
+                    elif filename.endswith('.xlsx'):
+                        df = pd.read_excel(uploaded_file, engine='openpyxl')
+                        column_name = df.columns[0]
+                        for col in df.columns:
+                            if 'phone' in str(col).lower() or 'number' in str(col).lower():
+                                column_name = col
+                                break
+                        for num_raw in df[column_name].dropna():
+                            num = normalize_phone_number(num_raw)
+                            if num:
+                                numbers_from_file.add(num)
+                    
+                    all_numbers_from_files.update(numbers_from_file)
+                    
+                except Exception as e:
+                    st.error(f"ข้อผิดพลาดในการประมวลผลไฟล์ {filename}: {e}")
+            
+            st.session_state.processed_numbers_from_file = all_numbers_from_files
+            
+            # คำนวณเบอร์ที่สามารถใช้ได้และเบอร์ที่ซ้ำ
+            st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
+            st.session_state.new_numbers_to_add = st.session_state.processed_numbers_from_file - st.session_state.combined_numbers
+            st.session_state.duplicates_found = st.session_state.processed_numbers_from_file.intersection(st.session_state.combined_numbers)
+            
+            update_status(f"ประมวลผลไฟล์ทั้งหมดสำเร็จ")
+            update_status(f"พบเบอร์โทรศัพท์ทั้งหมด (หลังลบซ้ำ): {len(st.session_state.processed_numbers_from_file)} เบอร์")
+            update_status(f"**เบอร์ที่สามารถใช้ส่ง SMS ได้ (เบอร์ใหม่): {len(st.session_state.new_numbers_to_add)} เบอร์**")
+            
+            st.success("ประมวลผลสำเร็จ!")
+            
+        else:
+            st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
+
+with col_check:
+    if st.button("ตรวจสอบเบอร์ซ้ำ (ไม่บันทึก)"):
+        if st.session_state.uploaded_files:
+            st.session_state.processed_numbers_from_file.clear()
+            st.session_state.new_numbers_to_add.clear()
+            st.session_state.duplicates_found.clear()
+            st.session_state.is_checked_only = True
+
+            all_numbers_from_files = set()
+            for uploaded_file in st.session_state.uploaded_files:
+                filename = uploaded_file.name
+                update_status(f"กำลังตรวจสอบไฟล์: {filename}")
                 
-            except Exception as e:
-                st.error(f"ข้อผิดพลาดในการประมวลผลไฟล์ {filename}: {e}")
-        
-        st.session_state.processed_numbers_from_file = all_numbers_from_files
-        
-        # คำนวณเบอร์ที่สามารถใช้ได้และเบอร์ที่ซ้ำ
-        st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
-        st.session_state.new_numbers_to_add = st.session_state.processed_numbers_from_file - st.session_state.combined_numbers
-        st.session_state.duplicates_found = st.session_state.processed_numbers_from_file.intersection(st.session_state.combined_numbers)
-        
-        update_status(f"ประมวลผลไฟล์ทั้งหมดสำเร็จ")
-        update_status(f"พบเบอร์โทรศัพท์ทั้งหมด (หลังลบซ้ำ): {len(st.session_state.processed_numbers_from_file)} เบอร์")
-        update_status(f"**เบอร์ที่สามารถใช้ส่ง SMS ได้ (เบอร์ใหม่): {len(st.session_state.new_numbers_to_add)} เบอร์**")
-        
-        st.success("ประมวลผลสำเร็จ!")
-        
-    else:
-        st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
+                try:
+                    numbers_from_file = set()
+                    if filename.endswith('.txt'):
+                        lines = uploaded_file.read().decode('utf-8').splitlines()
+                        for line in lines:
+                            num = normalize_phone_number(line.strip())
+                            if num:
+                                numbers_from_file.add(num)
+                    elif filename.endswith('.xlsx'):
+                        df = pd.read_excel(uploaded_file, engine='openpyxl')
+                        column_name = df.columns[0]
+                        for col in df.columns:
+                            if 'phone' in str(col).lower() or 'number' in str(col).lower():
+                                column_name = col
+                                break
+                        for num_raw in df[column_name].dropna():
+                            num = normalize_phone_number(num_raw)
+                            if num:
+                                numbers_from_file.add(num)
+                    all_numbers_from_files.update(numbers_from_file)
+                except Exception as e:
+                    st.error(f"ข้อผิดพลาดในการประมวลผลไฟล์ {filename}: {e}")
+
+            st.session_state.processed_numbers_from_file = all_numbers_from_files
+            st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
+            st.session_state.duplicates_found = st.session_state.processed_numbers_from_file.intersection(st.session_state.combined_numbers)
+
+            update_status(f"ตรวจสอบเบอร์ทั้งหมดสำเร็จ")
+            if st.session_state.duplicates_found:
+                update_status(f"**พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์: {len(st.session_state.duplicates_found)} เบอร์**")
+                st.success("ตรวจสอบเบอร์ซ้ำสำเร็จ!")
+            else:
+                update_status("ไม่พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์ในไฟล์ที่อัปโหลด")
+                st.success("ไม่พบเบอร์ที่ซ้ำ!")
+        else:
+            st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
 # แสดงผลลัพธ์
 st.markdown("---")
@@ -200,28 +268,26 @@ with col1:
     status_area.markdown("\n".join(st.session_state.status_message))
     
     st.markdown("---")
-    st.info("#### เบอร์ที่สามารถใช้ส่ง SMS ได้ (เบอร์ใหม่)")
-    if st.session_state.new_numbers_to_add:
-        st.text("\n".join(list(st.session_state.new_numbers_to_add)[:50]))
-        if len(st.session_state.new_numbers_to_add) > 50:
-            st.text("...")
+    st.info("#### ผลลัพธ์เบอร์")
+    if st.session_state.is_checked_only:
+        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join(list(st.session_state.duplicates_found)), height=200)
     else:
-        st.text("ไม่มีเบอร์ใหม่")
+        st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join(list(st.session_state.new_numbers_to_add)), height=200)
 
 with col2:
     st.success("#### บันทึกและส่งออก")
     
     if st.button("บันทึกลงไฟล์รวมเบอร์"):
-        if not st.session_state.processed_numbers_from_file:
+        if not st.session_state.uploaded_files or st.session_state.is_checked_only:
             st.warning("โปรดประมวลผลไฟล์ก่อนบันทึก")
         else:
-            already_uploaded = [f.name for f in uploaded_files if check_file_uploaded_before(f.name)]
+            already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
             if already_uploaded:
                 if st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?"):
                     st.stop()
             
             new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
-            for f in uploaded_files:
+            for f in st.session_state.uploaded_files:
                 record_uploaded_file(f.name)
             
             st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
@@ -229,15 +295,6 @@ with col2:
             update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
             st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
 
-    def create_export_file(numbers_set, file_format):
-        if file_format == 'txt':
-            return "\n".join(sorted(list(numbers_set))).encode('utf-8')
-        elif file_format == 'xlsx':
-            df = pd.DataFrame(sorted(list(numbers_set)), columns=["Phone Number"])
-            output = io.BytesIO()
-            df.to_excel(output, index=False)
-            return output.getvalue()
-    
     st.markdown("---")
     export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True)
 
@@ -277,4 +334,3 @@ if st.button("ล้างไฟล์รวมเบอร์"):
             st.experimental_rerun()
         except Exception as e:
             st.error(f"ข้อผิดพลาดในการลบ: {e}")
-
