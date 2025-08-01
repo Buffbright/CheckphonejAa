@@ -273,8 +273,9 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.info("#### ข้อมูลสถานะ")
-    status_area = st.empty()
-    status_area.markdown("\n".join(st.session_state.status_message))
+    # แก้ไขการแสดงผล status_message ให้เป็นบรรทัด
+    status_text_display = st.empty()
+    status_text_display.markdown("\n".join(st.session_state.status_message))
     
     st.markdown("---")
     st.info("#### ผลลัพธ์เบอร์")
@@ -349,16 +350,26 @@ with col2:
         )
 
 st.markdown("---")
+# เพิ่มช่องใส่รหัสผ่านสำหรับปุ่มล้างไฟล์รวมเบอร์
+clear_password = st.text_input("รหัสผ่านสำหรับล้างไฟล์รวมเบอร์", type="password", key='clear_password')
+
 if st.button("ล้างไฟล์รวมเบอร์"):
-    if st.warning("คุณแน่ใจหรือไม่ว่าต้องการลบเบอร์ทั้งหมดในไฟล์รวมเบอร์? การดำเนินการนี้ไม่สามารถย้อนกลับได้!"):
-        try:
-            with open(COMBINED_NUMBERS_FILE, 'w', encoding='utf-8') as f:
-                f.write("")
-            with open(UPLOADED_FILES_LOG, 'w', encoding='utf-8') as f:
-                f.write("")
-            st.session_state.combined_numbers = set()
-            st.success("ลบเบอร์ในไฟล์รวมเบอร์ทั้งหมดเรียบร้อยแล้ว")
-            st.session_state.status_message.append("ไฟล์รวมเบอร์ถูกลบแล้ว")
-            st.rerun()
-        except Exception as e:
-            st.error(f"ข้อผิดพลาดในการลบ: {e}")
+    # ตรวจสอบรหัสผ่านก่อนดำเนินการลบ
+    if clear_password == "555+":
+        st.warning("คุณแน่ใจหรือไม่ว่าต้องการลบเบอร์ทั้งหมดในไฟล์รวมเบอร์? การดำเนินการนี้ไม่สามารถย้อนกลับได้!")
+        
+        # เพิ่มปุ่มยืนยันอีกครั้งเพื่อความปลอดภัย
+        if st.button("ยืนยันการลบ", key='confirm_clear'):
+            try:
+                with open(COMBINED_NUMBERS_FILE, 'w', encoding='utf-8') as f:
+                    f.write("")
+                with open(UPLOADED_FILES_LOG, 'w', encoding='utf-8') as f:
+                    f.write("")
+                st.session_state.combined_numbers = set()
+                st.success("ลบเบอร์ในไฟล์รวมเบอร์ทั้งหมดเรียบร้อยแล้ว")
+                st.session_state.status_message.append("ไฟล์รวมเบอร์ถูกลบแล้ว")
+                st.rerun()
+            except Exception as e:
+                st.error(f"ข้อผิดพลาดในการลบ: {e}")
+    elif clear_password != "":
+        st.error("รหัสผ่านไม่ถูกต้อง")
