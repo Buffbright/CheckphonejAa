@@ -203,7 +203,8 @@ with col_upload:
             update_status(f"**เบอร์ที่สามารถใช้ส่ง SMS ได้ (เบอร์ใหม่): {len(st.session_state.new_numbers_to_add)} เบอร์**")
             
             st.success("ประมวลผลสำเร็จ!")
-            
+            st.toast(f"ประมวลผลเบอร์โทรศัพท์จากไฟล์ทั้งหมดสำเร็จ: {len(st.session_state.processed_numbers_from_file)} เบอร์\nเบอร์ใหม่ที่ไม่ซ้ำ: {len(st.session_state.new_numbers_to_add)} เบอร์")
+
         else:
             st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
@@ -251,9 +252,11 @@ with col_check:
             if st.session_state.duplicates_found:
                 update_status(f"**พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์: {len(st.session_state.duplicates_found)} เบอร์**")
                 st.success("ตรวจสอบเบอร์ซ้ำสำเร็จ!")
+                st.toast(f"พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์: {len(st.session_state.duplicates_found)} เบอร์")
             else:
                 update_status("ไม่พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์ในไฟล์ที่อัปโหลด")
                 st.success("ไม่พบเบอร์ที่ซ้ำ!")
+                st.toast("ไม่พบเบอร์ที่ซ้ำกับไฟล์รวมเบอร์ในไฟล์ที่อัปโหลด")
         else:
             st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
@@ -294,6 +297,7 @@ with col2:
             update_status(f"บันทึกเบอร์ใหม่ {new_count} เบอร์")
             update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
             st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
+            st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
 
     st.markdown("---")
     export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True)
@@ -331,6 +335,6 @@ if st.button("ล้างไฟล์รวมเบอร์"):
             st.session_state.combined_numbers = set()
             st.success("ลบเบอร์ในไฟล์รวมเบอร์ทั้งหมดเรียบร้อยแล้ว")
             st.session_state.status_message.append("ไฟล์รวมเบอร์ถูกลบแล้ว")
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"ข้อผิดพลาดในการลบ: {e}")
