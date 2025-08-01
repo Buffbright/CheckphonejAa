@@ -273,9 +273,9 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.info("#### ข้อมูลสถานะ")
-    # แก้ไขการแสดงผล status_message ให้เป็นบรรทัด
-    status_text_display = st.empty()
-    status_text_display.markdown("\n".join(st.session_state.status_message))
+    status_area = st.empty()
+    # แก้ไขการแสดงผล status_message ให้เป็นรายการ
+    status_area.markdown("\n".join(st.session_state.status_message))
     
     st.markdown("---")
     st.info("#### ผลลัพธ์เบอร์")
