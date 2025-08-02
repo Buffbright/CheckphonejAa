@@ -423,7 +423,7 @@ if st.button("ค้นหาเบอร์", key="search_button"):
 clear_password = st.text_input("รหัสผ่านสำหรับล้างไฟล์รวมเบอร์", type="password", key='clear_password_input')
 
 if st.button("ล้างไฟล์รวมเบอร์", key="clear_combined_button"):
-    if clear_password == "555+":
+    if clear_password == "5555+":
         st.warning("คุณแน่ใจหรือไม่ว่าต้องการลบเบอร์ทั้งหมดในไฟล์รวมเบอร์? การดำเนินการนี้ไม่สามารถย้อนกลับได้!")
         
         if st.button("ยืนยันการลบ", key='confirm_clear_button'):
