@@ -301,9 +301,7 @@ with col2:
                 already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
                 if already_uploaded:
                     st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?")
-                    # To prevent immediate saving, we might need a confirmation button here,
-                    # but for simplicity, we'll just stop the execution for now.
-                    st.stop() # This will stop the script execution until next interaction
+                    st.stop()
                 
                 new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
                 for f in st.session_state.uploaded_files:
@@ -318,6 +316,49 @@ with col2:
             st.error("รหัสผ่านไม่ถูกต้องสำหรับการบันทึก")
         else:
             st.warning("โปรดใส่รหัสผ่านสำหรับการบันทึก")
+            
+    st.markdown("---")
+    # เพิ่มการป้องกันด้วยรหัสผ่านสำหรับการดาวน์โหลด
+    download_password = st.text_input("รหัสผ่านสำหรับดาวน์โหลด", type="password", key='download_password')
+
+    # ย้ายการประกาศ export_format ขึ้นมาตรงนี้ 
+    # เพื่อให้แน่ใจว่า export_format ถูกกำหนดค่าแล้วก่อนที่จะถูกใช้ใน download_button
+    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio')
+
+    # สร้างปุ่มดาวน์โหลดเป็นฟังก์ชัน
+    def download_button(label, data, file_name, mime):
+        # ตรวจสอบรหัสผ่านก่อนดาวน์โหลด
+        if download_password == "aa123456":
+            st.download_button(
+                label=label,
+                data=data,
+                file_name=file_name,
+                mime=mime
+            )
+        elif download_password != "":
+            st.warning("รหัสผ่านไม่ถูกต้องสำหรับการดาวน์โหลด")
+
+    if st.session_state.new_numbers_to_add:
+        download_button(
+            label=f"ดาวน์โหลดเบอร์ใหม่ ({len(st.session_state.new_numbers_to_add)} เบอร์)",
+            data=create_export_file(st.session_state.new_numbers_to_add, export_format), # export_format ถูกกำหนดแล้วที่นี่
+            file_name=f"new_numbers.{export_format}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
+        )
+    if st.session_state.duplicates_found:
+        download_button(
+            label=f"ดาวน์โหลดเบอร์ที่ซ้ำ ({len(st.session_state.duplicates_found)} เบอร์)",
+            data=create_export_file(st.session_state.duplicates_found, export_format), # export_format ถูกกำหนดแล้วที่นี่
+            file_name=f"duplicate_numbers.{export_format}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
+        )
+    if st.session_state.combined_numbers:
+        download_button(
+            label=f"ดาวน์โหลดเบอร์ทั้งหมดในไฟล์รวมเบอร์ ({len(st.session_state.combined_numbers)} เบอร์)",
+            data=create_export_file(st.session_state.combined_numbers, export_format), # export_format ถูกกำหนดแล้วที่นี่
+            file_name=f"all_combined_numbers.{export_format}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
+        )
             
     st.markdown("---")
     # เพิ่มการป้องกันด้วยรหัสผ่านสำหรับการดาวน์โหลด
