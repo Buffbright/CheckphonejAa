@@ -105,6 +105,10 @@ if 'is_checked_only' not in st.session_state:
     st.session_state.is_checked_only = False
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
+if 'search_found_numbers' not in st.session_state: # New: To store numbers found during search
+    st.session_state.search_found_numbers = set()
+if 'search_not_found_numbers' not in st.session_state: # New: To store numbers not found during search
+    st.session_state.search_not_found_numbers = set()
 
 def update_status(message):
     st.session_state.status_message.append(message)
@@ -143,8 +147,6 @@ st.title("โปรแกรมจัดการเบอร์โทรศั�
 # แสดงจำนวนเบอร์ในไฟล์รวม
 st.info(f"**จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์**")
 
-
-
 ### 1. อัปโหลดไฟล์เบอร์โทรศัพท์
 
 uploaded_files = st.file_uploader(
@@ -152,7 +154,7 @@ uploaded_files = st.file_uploader(
     type=['txt', 'xlsx'],
     accept_multiple_files=True,
     help="สามารถเลือกได้หลายไฟล์พร้อมกัน",
-    key="file_uploader" # เพิ่ม key
+    key="file_uploader"
 )
 if uploaded_files:
     st.session_state.uploaded_files = uploaded_files
@@ -160,7 +162,7 @@ if uploaded_files:
 col_upload, col_check = st.columns(2)
 
 with col_upload:
-    if st.button("ประมวลผลไฟล์", key="process_button"): # เพิ่ม key
+    if st.button("ประมวลผลไฟล์", key="process_button"):
         if st.session_state.uploaded_files:
             st.session_state.processed_numbers_from_file.clear()
             st.session_state.new_numbers_to_add.clear()
@@ -189,7 +191,7 @@ with col_upload:
                             if 'phone' in str(col).lower() or 'number' in str(col).lower():
                                 column_name = col
                                 break
-                        if column_name is None and len(df.columns) > 0: # ถ้าหาไม่เจอ ให้ใช้คอลัมน์แรก
+                        if column_name is None and len(df.columns) > 0:
                             column_name = df.columns[0]
                         
                         if column_name is not None:
@@ -222,7 +224,7 @@ with col_upload:
             st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
 with col_check:
-    if st.button("ตรวจสอบเบอร์ซ้ำ (ไม่บันทึก)", key="check_only_button"): # เพิ่ม key
+    if st.button("ตรวจสอบเบอร์ซ้ำ (ไม่บันทึก)", key="check_only_button"):
         if st.session_state.uploaded_files:
             st.session_state.processed_numbers_from_file.clear()
             st.session_state.new_numbers_to_add.clear() 
@@ -297,6 +299,16 @@ with col1:
         st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.new_numbers_to_add)]), height=200, key="new_numbers_display")
     if st.session_state.duplicates_found:
         st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200, key="duplicates_display")
+    
+    # New: Display search results
+    if st.session_state.search_found_numbers:
+        st.markdown("---")
+        st.info("#### ผลการค้นหา (พบเบอร์ในไฟล์รวม)")
+        st.text_area("เบอร์ที่พบ", "\n".join([hide_last_four_digits(n) for n in sorted(list(st.session_state.search_found_numbers))]), height=150, key="search_found_display")
+    if st.session_state.search_not_found_numbers:
+        st.markdown("---")
+        st.warning("#### ผลการค้นหา (ไม่พบเบอร์ในไฟล์รวม)")
+        st.text_area("เบอร์ที่ไม่พบ", "\n".join([hide_last_four_digits(n) for n in sorted(list(st.session_state.search_not_found_numbers))]), height=150, key="search_not_found_display")
 
 
 with col2:
@@ -344,14 +356,12 @@ with col2:
             
     st.markdown("---")
     
-    # ย้าย export_format ขึ้นมาด้านบน
     export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio')
 
-    # สร้างปุ่มดาวน์โหลดเป็นฟังก์ชัน
     def download_button(label, data, file_name, mime, button_key, requires_password=False):
         can_download = True
         if requires_password:
-            download_password_for_all = st.text_input("รหัสผ่านสำหรับดาวน์โหลด (เบอร์ทั้งหมด)", type="password", key='download_all_password_input')
+            download_password_for_all = st.text_input("รหัสผ่านสำหรับดาวน์โหลด (เบอร์ทั้งหมด)", type="password", key=f'download_{button_key}_password_input')
             if download_password_for_all != "aa123456":
                 st.warning("โปรดใส่รหัสผ่านที่ถูกต้องเพื่อดาวน์โหลดเบอร์ทั้งหมด")
                 can_download = False
@@ -373,7 +383,7 @@ with col2:
             file_name=f"new_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
             button_key="download_new_button",
-            requires_password=False # ไม่ต้องใช้รหัสผ่าน
+            requires_password=False
         )
     if st.session_state.duplicates_found:
         download_button(
@@ -382,40 +392,65 @@ with col2:
             file_name=f"duplicate_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
             button_key="download_duplicates_button",
-            requires_password=False # ไม่ต้องใช้รหัสผ่าน
+            requires_password=False
         )
     if st.session_state.combined_numbers:
-        # ปุ่มนี้ต้องการรหัสผ่าน
         download_button(
             label=f"ดาวน์โหลดเบอร์ทั้งหมดในไฟล์รวมเบอร์ ({len(st.session_state.combined_numbers)} เบอร์)",
             data=create_export_file(st.session_state.combined_numbers, export_format),
             file_name=f"all_combined_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
             button_key="download_all_combined_button",
-            requires_password=True # ต้องใช้รหัสผ่าน
+            requires_password=True
         )
-
+    
+    # New: Download button for searched numbers found in the combined file
+    if st.session_state.search_found_numbers:
+        st.markdown("---")
+        download_button(
+            label=f"ดาวน์โหลดเบอร์ที่พบในการค้นหา ({len(st.session_state.search_found_numbers)} เบอร์)",
+            data=create_export_file(st.session_state.search_found_numbers, export_format),
+            file_name=f"found_search_numbers.{export_format}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
+            button_key="download_search_found_button",
+            requires_password=False # No password needed for this specific download
+        )
 
 
 ### 3. ค้นหาเบอร์โทรศัพท์
 
-search_number_input = st.text_input("ป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา (เช่น 08XXXXXXXX)", key='search_number_input')
+search_number_input = st.text_area("ป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา (สามารถวางได้หลายเบอร์, คั่นด้วยบรรทัดใหม่)", key='search_number_input', height=150)
 
 if st.button("ค้นหาเบอร์", key="search_button"):
     if search_number_input:
-        normalized_search_number = normalize_phone_number(search_number_input)
-        if normalized_search_number:
-            if normalized_search_number in st.session_state.combined_numbers:
-                st.success(f"พบเบอร์ {hide_last_four_digits(normalized_search_number)} ในไฟล์รวมเบอร์แล้ว")
-                update_status(f"ค้นหา: พบเบอร์ {hide_last_four_digits(normalized_search_number)}")
+        st.session_state.search_found_numbers.clear()
+        st.session_state.search_not_found_numbers.clear()
+
+        raw_numbers = search_number_input.strip().splitlines()
+        
+        for raw_num in raw_numbers:
+            normalized_search_number = normalize_phone_number(raw_num.strip())
+            if normalized_search_number:
+                if normalized_search_number in st.session_state.combined_numbers:
+                    st.session_state.search_found_numbers.add(normalized_search_number)
+                else:
+                    st.session_state.search_not_found_numbers.add(normalized_search_number)
             else:
-                st.warning(f"ไม่พบเบอร์ {hide_last_four_digits(normalized_search_number)} ในไฟล์รวมเบอร์")
-                update_status(f"ค้นหา: ไม่พบเบอร์ {hide_last_four_digits(normalized_search_number)}")
-        else:
-            st.error("รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง โปรดป้อนเบอร์โทรศัพท์ 10 หลักที่ขึ้นต้นด้วย 0")
+                update_status(f"รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง: {raw_num.strip()} (ไม่ถูกประมวลผลในการค้นหา)")
+        
+        if st.session_state.search_found_numbers:
+            st.success(f"พบเบอร์ {len(st.session_state.search_found_numbers)} เบอร์ ในไฟล์รวมเบอร์")
+            update_status(f"ค้นหา: พบเบอร์ {len(st.session_state.search_found_numbers)} เบอร์")
+        if st.session_state.search_not_found_numbers:
+            st.warning(f"ไม่พบเบอร์ {len(st.session_state.search_not_found_numbers)} เบอร์ ในไฟล์รวมเบอร์")
+            update_status(f"ค้นหา: ไม่พบเบอร์ {len(st.session_state.search_not_found_numbers)} เบอร์")
+        
+        if not st.session_state.search_found_numbers and not st.session_state.search_not_found_numbers:
+            st.warning("ไม่พบเบอร์โทรศัพท์ที่ถูกต้องในข้อมูลที่ป้อน")
+            update_status("ค้นหา: ไม่พบเบอร์โทรศัพท์ที่ถูกต้อง")
+
     else:
         st.warning("โปรดป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา")
-
 
 
 # การจัดการไฟล์ข้อมูล
