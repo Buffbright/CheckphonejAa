@@ -281,8 +281,6 @@ with col_check:
         else:
             st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
----
-
 ### 2. ผลลัพธ์และตัวเลือกการดำเนินการ
 
 col1, col2 = st.columns(2)
@@ -385,7 +383,7 @@ with col2:
             button_key="download_all_combined_button" # เพิ่ม key
         )
 
----
+
 
 ### 3. ค้นหาเบอร์โทรศัพท์
 
@@ -406,7 +404,7 @@ if st.button("ค้นหาเบอร์", key="search_button"): # เพิ
     else:
         st.warning("โปรดป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา")
 
----
+
 
 # การจัดการไฟล์ข้อมูล
 
