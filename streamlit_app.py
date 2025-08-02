@@ -281,6 +281,7 @@ with col_check:
         else:
             st.warning("โปรดอัปโหลดไฟล์เบอร์โทรศัพท์ก่อน")
 
+
 ### 2. ผลลัพธ์และตัวเลือกการดำเนินการ
 
 col1, col2 = st.columns(2)
@@ -293,17 +294,17 @@ with col1:
     st.markdown("---")
     st.info("#### ผลลัพธ์เบอร์")
     if st.session_state.new_numbers_to_add:
-        st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.new_numbers_to_add)]), height=200, key="new_numbers_display") # เพิ่ม key
+        st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.new_numbers_to_add)]), height=200, key="new_numbers_display")
     if st.session_state.duplicates_found:
-        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200, key="duplicates_display") # เพิ่ม key
+        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200, key="duplicates_display")
 
 
 with col2:
     st.success("#### บันทึกและส่งออก")
     
-    save_password = st.text_input("รหัสผ่านสำหรับบันทึก", type="password", key='save_password_input') # แก้ไข key ให้ไม่ซ้ำ
+    save_password = st.text_input("รหัสผ่านสำหรับบันทึก", type="password", key='save_password_input')
 
-    if st.button("บันทึกลงไฟล์รวมเบอร์", key="save_to_combined_button"): # เพิ่ม key
+    if st.button("บันทึกลงไฟล์รวมเบอร์", key="save_to_combined_button"):
         if save_password == "aa123456":
             if not st.session_state.uploaded_files or st.session_state.is_checked_only:
                 st.warning("โปรดประมวลผลไฟล์ก่อนบันทึก")
@@ -311,7 +312,7 @@ with col2:
                 already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
                 if already_uploaded:
                     st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณแน่ใจหรือไม่ว่าต้องการบันทึกซ้ำ?")
-                    if st.button("ยืนยันบันทึกซ้ำ", key="confirm_overwrite_button"): # เพิ่ม key สำหรับปุ่มยืนยัน
+                    if st.button("ยืนยันบันทึกซ้ำ", key="confirm_overwrite_button"):
                         new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
                         for f in st.session_state.uploaded_files:
                             record_uploaded_file(f.name)
@@ -321,9 +322,9 @@ with col2:
                         update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
                         st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
                         st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
-                        st.rerun() # รีรันเพื่ออัปเดตสถานะและ UI
+                        st.rerun() 
                     else:
-                        st.stop() # หยุดการประมวลผลหากไม่ยืนยัน
+                        st.stop()
                 else:
                     new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
                     for f in st.session_state.uploaded_files:
@@ -334,7 +335,7 @@ with col2:
                     update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
                     st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
                     st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
-                    st.rerun() # รีรันเพื่ออัปเดตสถานะและ UI
+                    st.rerun()
 
         elif save_password != "":
             st.error("รหัสผ่านไม่ถูกต้องสำหรับการบันทึก")
@@ -343,20 +344,27 @@ with col2:
             
     st.markdown("---")
     
-    download_password = st.text_input("รหัสผ่านสำหรับดาวน์โหลด", type="password", key='download_password_input') # แก้ไข key ให้ไม่ซ้ำ
-    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio') # ย้ายขึ้นมาด้านบน
+    # ย้าย export_format ขึ้นมาด้านบน
+    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio')
 
-    def download_button(label, data, file_name, mime, button_key): # เพิ่ม parameter button_key
-        if download_password == "aa123456":
+    # สร้างปุ่มดาวน์โหลดเป็นฟังก์ชัน
+    def download_button(label, data, file_name, mime, button_key, requires_password=False):
+        can_download = True
+        if requires_password:
+            download_password_for_all = st.text_input("รหัสผ่านสำหรับดาวน์โหลด (เบอร์ทั้งหมด)", type="password", key='download_all_password_input')
+            if download_password_for_all != "aa123456":
+                st.warning("โปรดใส่รหัสผ่านที่ถูกต้องเพื่อดาวน์โหลดเบอร์ทั้งหมด")
+                can_download = False
+
+        if can_download:
             st.download_button(
                 label=label,
                 data=data,
                 file_name=file_name,
                 mime=mime,
-                key=button_key # ใช้ key ที่ส่งเข้ามา
+                key=button_key
             )
-        elif download_password != "":
-            st.warning("รหัสผ่านไม่ถูกต้องสำหรับการดาวน์โหลด")
+        
 
     if st.session_state.new_numbers_to_add:
         download_button(
@@ -364,7 +372,8 @@ with col2:
             data=create_export_file(st.session_state.new_numbers_to_add, export_format),
             file_name=f"new_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
-            button_key="download_new_button" # เพิ่ม key
+            button_key="download_new_button",
+            requires_password=False # ไม่ต้องใช้รหัสผ่าน
         )
     if st.session_state.duplicates_found:
         download_button(
@@ -372,15 +381,18 @@ with col2:
             data=create_export_file(st.session_state.duplicates_found, export_format),
             file_name=f"duplicate_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
-            button_key="download_duplicates_button" # เพิ่ม key
+            button_key="download_duplicates_button",
+            requires_password=False # ไม่ต้องใช้รหัสผ่าน
         )
     if st.session_state.combined_numbers:
+        # ปุ่มนี้ต้องการรหัสผ่าน
         download_button(
             label=f"ดาวน์โหลดเบอร์ทั้งหมดในไฟล์รวมเบอร์ ({len(st.session_state.combined_numbers)} เบอร์)",
             data=create_export_file(st.session_state.combined_numbers, export_format),
             file_name=f"all_combined_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain",
-            button_key="download_all_combined_button" # เพิ่ม key
+            button_key="download_all_combined_button",
+            requires_password=True # ต้องใช้รหัสผ่าน
         )
 
 
@@ -389,7 +401,7 @@ with col2:
 
 search_number_input = st.text_input("ป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา (เช่น 08XXXXXXXX)", key='search_number_input')
 
-if st.button("ค้นหาเบอร์", key="search_button"): # เพิ่ม key
+if st.button("ค้นหาเบอร์", key="search_button"):
     if search_number_input:
         normalized_search_number = normalize_phone_number(search_number_input)
         if normalized_search_number:
@@ -408,14 +420,13 @@ if st.button("ค้นหาเบอร์", key="search_button"): # เพิ
 
 # การจัดการไฟล์ข้อมูล
 
-clear_password = st.text_input("รหัสผ่านสำหรับล้างไฟล์รวมเบอร์", type="password", key='clear_password_input') # แก้ไข key ให้ไม่ซ้ำ
+clear_password = st.text_input("รหัสผ่านสำหรับล้างไฟล์รวมเบอร์", type="password", key='clear_password_input')
 
-if st.button("ล้างไฟล์รวมเบอร์", key="clear_combined_button"): # เพิ่ม key
+if st.button("ล้างไฟล์รวมเบอร์", key="clear_combined_button"):
     if clear_password == "555+":
         st.warning("คุณแน่ใจหรือไม่ว่าต้องการลบเบอร์ทั้งหมดในไฟล์รวมเบอร์? การดำเนินการนี้ไม่สามารถย้อนกลับได้!")
         
-        # เพิ่มปุ่มยืนยันอีกครั้งเพื่อความปลอดภัย
-        if st.button("ยืนยันการลบ", key='confirm_clear_button'): # เพิ่ม key
+        if st.button("ยืนยันการลบ", key='confirm_clear_button'):
             try:
                 with open(COMBINED_NUMBERS_FILE, 'w', encoding='utf-8') as f:
                     f.write("")
