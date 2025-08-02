@@ -218,7 +218,7 @@ with col_check:
     if st.button("ตรวจสอบเบอร์ซ้ำ (ไม่บันทึก)"):
         if st.session_state.uploaded_files:
             st.session_state.processed_numbers_from_file.clear()
-            st.session_state.new_numbers_to_add.clear()
+            st.session_state.new_numbers_to_add.clear() # Clear new numbers as we are only checking duplicates
             st.session_state.duplicates_found.clear()
             st.session_state.is_checked_only = True
 
@@ -253,6 +253,7 @@ with col_check:
             st.session_state.processed_numbers_from_file = all_numbers_from_files
             st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
             st.session_state.duplicates_found = st.session_state.processed_numbers_from_file.intersection(st.session_state.combined_numbers)
+            st.session_state.new_numbers_to_add = st.session_state.processed_numbers_from_file - st.session_state.combined_numbers # Populate new_numbers_to_add even in check-only mode for download
 
             update_status(f"ตรวจสอบเบอร์ทั้งหมดสำเร็จ")
             if st.session_state.duplicates_found:
@@ -279,53 +280,61 @@ with col1:
     
     st.markdown("---")
     st.info("#### ผลลัพธ์เบอร์")
-    if st.session_state.is_checked_only:
-        # แสดงเบอร์ที่ซ้ำแบบซ่อนเลขท้าย
-        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200)
-    else:
-        # แสดงเบอร์ใหม่แบบซ่อนเลขท้าย
+    # Always show new numbers and duplicates if they exist, regardless of check_only mode
+    if st.session_state.new_numbers_to_add:
         st.text_area("เบอร์ใหม่ที่สามารถใช้ได้", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.new_numbers_to_add)]), height=200)
+    if st.session_state.duplicates_found:
+        st.text_area("เบอร์ที่ซ้ำกับไฟล์รวมเบอร์", "\n".join([hide_last_four_digits(n) for n in list(st.session_state.duplicates_found)]), height=200)
+
 
 with col2:
     st.success("#### บันทึกและส่งออก")
     
-    # เพิ่มการป้องกันด้วยรหัสผ่าน
-    password = st.text_input("รหัสผ่านสำหรับดาวน์โหลด", type="password")
-    
+    # เพิ่มการป้องกันด้วยรหัสผ่านสำหรับการบันทึก
+    save_password = st.text_input("รหัสผ่านสำหรับบันทึก", type="password", key='save_password')
+
+    if st.button("บันทึกลงไฟล์รวมเบอร์"):
+        if save_password == "aa123456":
+            if not st.session_state.uploaded_files or st.session_state.is_checked_only:
+                st.warning("โปรดประมวลผลไฟล์ก่อนบันทึก")
+            else:
+                already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
+                if already_uploaded:
+                    st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?")
+                    # To prevent immediate saving, we might need a confirmation button here,
+                    # but for simplicity, we'll just stop the execution for now.
+                    st.stop() # This will stop the script execution until next interaction
+                
+                new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
+                for f in st.session_state.uploaded_files:
+                    record_uploaded_file(f.name)
+                
+                st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
+                update_status(f"บันทึกเบอร์ใหม่ {new_count} เบอร์")
+                update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
+                st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
+                st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
+        elif save_password != "":
+            st.error("รหัสผ่านไม่ถูกต้องสำหรับการบันทึก")
+        else:
+            st.warning("โปรดใส่รหัสผ่านสำหรับการบันทึก")
+            
+    st.markdown("---")
+    # เพิ่มการป้องกันด้วยรหัสผ่านสำหรับการดาวน์โหลด
+    download_password = st.text_input("รหัสผ่านสำหรับดาวน์โหลด", type="password", key='download_password')
+
     # สร้างปุ่มดาวน์โหลดเป็นฟังก์ชัน
     def download_button(label, data, file_name, mime):
         # ตรวจสอบรหัสผ่านก่อนดาวน์โหลด
-        if password == "aa123456":
+        if download_password == "aa123456":
             st.download_button(
                 label=label,
                 data=data,
                 file_name=file_name,
                 mime=mime
             )
-        elif password != "":
-            st.warning("รหัสผ่านไม่ถูกต้อง")
-
-    if st.button("บันทึกลงไฟล์รวมเบอร์"):
-        if not st.session_state.uploaded_files or st.session_state.is_checked_only:
-            st.warning("โปรดประมวลผลไฟล์ก่อนบันทึก")
-        else:
-            already_uploaded = [f.name for f in st.session_state.uploaded_files if check_file_uploaded_before(f.name)]
-            if already_uploaded:
-                st.warning(f"ไฟล์เหล่านี้เคยถูกบันทึกแล้ว: {', '.join(already_uploaded)} คุณต้องการบันทึกต่อหรือไม่?")
-                st.stop()
-            
-            new_count = insert_numbers_to_file(st.session_state.new_numbers_to_add)
-            for f in st.session_state.uploaded_files:
-                record_uploaded_file(f.name)
-            
-            st.session_state.combined_numbers = get_all_numbers_from_file(COMBINED_NUMBERS_FILE)
-            update_status(f"บันทึกเบอร์ใหม่ {new_count} เบอร์")
-            update_status(f"จำนวนเบอร์ในไฟล์รวมเบอร์: {len(st.session_state.combined_numbers)} เบอร์")
-            st.success(f"บันทึกสำเร็จ! เพิ่มเบอร์ใหม่ {new_count} เบอร์")
-            st.toast(f"บันทึกเบอร์ใหม่สำเร็จ: {new_count} เบอร์")
-
-    st.markdown("---")
-    export_format = st.radio("เลือกรูปแบบไฟล์ส่งออก", ['txt', 'xlsx'], horizontal=True, key='export_format_radio')
+        elif download_password != "":
+            st.warning("รหัสผ่านไม่ถูกต้องสำหรับการดาวน์โหลด")
 
     if st.session_state.new_numbers_to_add:
         download_button(
@@ -348,6 +357,25 @@ with col2:
             file_name=f"all_combined_numbers.{export_format}",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if export_format == 'xlsx' else "text/plain"
         )
+
+st.markdown("---")
+st.markdown("### 3. ค้นหาเบอร์โทรศัพท์")
+search_number_input = st.text_input("ป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา (เช่น 08XXXXXXXX)", key='search_number_input')
+
+if st.button("ค้นหาเบอร์"):
+    if search_number_input:
+        normalized_search_number = normalize_phone_number(search_number_input)
+        if normalized_search_number:
+            if normalized_search_number in st.session_state.combined_numbers:
+                st.success(f"พบเบอร์ {hide_last_four_digits(normalized_search_number)} ในไฟล์รวมเบอร์แล้ว")
+                update_status(f"ค้นหา: พบเบอร์ {hide_last_four_digits(normalized_search_number)}")
+            else:
+                st.warning(f"ไม่พบเบอร์ {hide_last_four_digits(normalized_search_number)} ในไฟล์รวมเบอร์")
+                update_status(f"ค้นหา: ไม่พบเบอร์ {hide_last_four_digits(normalized_search_number)}")
+        else:
+            st.error("รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง โปรดป้อนเบอร์โทรศัพท์ 10 หลักที่ขึ้นต้นด้วย 0")
+    else:
+        st.warning("โปรดป้อนเบอร์โทรศัพท์ที่ต้องการค้นหา")
 
 st.markdown("---")
 # เพิ่มช่องใส่รหัสผ่านสำหรับปุ่มล้างไฟล์รวมเบอร์
